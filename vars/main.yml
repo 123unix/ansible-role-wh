@@ -1,0 +1,2 @@
+---
+wh_MYSQL_ROOT_PASSWORD: "{{ lookup('password', 'credentials/' + ansible_host + '/MYSQL_ROOT_PASSWORD length=29') }}"

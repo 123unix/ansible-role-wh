@@ -1,0 +1,26 @@
+---
+
+#- import_tasks: install.yml
+
+- name: Securely pre-create wh_root dirs
+  file:
+    path: "{{ wh_root }}/{{ item }}"
+    state: directory
+    mode: 0700
+  with_items:
+  - conf
+  - data
+
+- name: Upload files
+  synchronize:
+    src: "{{ wh_src }}/"
+    dest: "{{ wh_root }}/sites/"
+    rsync_opts: "-uAHX"
+
+- import_tasks: db-docker.yml
+
+- import_tasks: add-sites.yml
+
+#- import_role: name=fail2ban
+
+...

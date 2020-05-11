@@ -1,0 +1,44 @@
+version: '3.1'
+
+services:
+
+  db:
+    image: {{ wh_db_image }}
+    restart: always
+    env_file: ./db.env
+    volumes:
+      - {{ wh_root }}/data/mysql:/var/lib/mysql
+      #- ./db-init:/docker-entrypoint-initdb.d
+    networks:
+      - db
+
+{% if wh_admin_host | length > 7 %}
+  adminer:
+    image: adminer
+    restart: unless-stopped
+    depends_on:
+      - db
+    networks:
+      - db
+      - {{ traefik_network }}
+    labels:
+      traefik.backend: adminer-testing
+      traefik.docker.network: {{ traefik_network }}
+      traefik.enable: "true"
+      traefik.frontend.rule: Host:{{ wh_admin_host }};Path:{{ wh_dbadmin_path }}
+      traefik.port: '8080'
+    environment:
+      ADMINER_DESIGN: brade
+      # https://github.com/vrana/adminer/tree/master/designs
+{% endif %}
+
+networks:
+  db:
+    external: true
+{% if wh_admin_host | length > 7 %}
+  {{ traefik_network }}:
+    external: true
+{% endif %}
+
+#volumes:
+#  db:

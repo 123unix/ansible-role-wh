@@ -1,0 +1,53 @@
+galaxy_info:
+  author: Alexander Shcheblikin
+  description: Configure fail2ban with more practical settings. Specialized for IP PBX (Asterisk, FreeSWITCH)
+  company: 123Unix.com
+
+  license: GPL-3.0-only
+
+  min_ansible_version: 2.8
+
+  role_name: fail2ban
+
+  platforms:
+  - name: Alpine
+    versions:
+    - all
+  - name: Amazon
+    versions:
+    - Candidate
+  - name: Debian
+    versions:
+    - jessie
+    - stretch
+    - buster
+  - name: EL
+    versions:
+    - 6
+    - 7
+  - name: Ubuntu
+    versions:
+    - xenial
+    - bionic
+
+  galaxy_tags:
+  - fail2ban
+  - security
+  - iptables
+  - bbb
+  - bigbluebutton
+  - asterisk
+  - freeswitch
+  - sip
+  - pbx
+  - ssh
+  - server
+  - networking
+  - system
+  - hardening
+
+#dependencies: []
+dependencies:
+- role: docker  # adds a fix for Ansible 2.9
+#- role: nickjj.docker
+#- traefik

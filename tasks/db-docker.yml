@@ -1,0 +1,25 @@
+- name: Create db network
+  docker_network:
+    name: db
+
+- name: DB docker-compose
+  template:
+    src: "{{ item }}.j2"
+    dest: "{{ wh_root }}/conf/{{ item }}"
+  with_items:
+  - docker-compose.db.yml
+  - db.env
+
+- name: docker-compose up DB
+  shell: >
+    cd {{ wh_root }}/conf &&
+    docker-compose
+    -f docker-compose.db.yml
+    -p wh
+    up -d --no-color
+  register: output
+
+- debug: var=output
+
+- name: Clear MYSQL_ROOT_PASSWORD from files on host
+  copy: dest={{ wh_root }}/conf/db.env content=''

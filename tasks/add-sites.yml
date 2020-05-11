@@ -1,0 +1,16 @@
+- name: List sites to be added
+  find:
+    paths: "{{ wh_root }}/sites"
+    file_type: directory
+  register: sites
+
+- debug: var=sites.files
+- debug: msg="{{ sites.files | map(attribute='path') |list }}"
+
+- name: Add each site
+  include_tasks: add-site.yml
+  vars:
+    vhost: "{{ item | basename }}"
+  with_items: "{{ sites.files | map(attribute='path') |list }}"
+
+

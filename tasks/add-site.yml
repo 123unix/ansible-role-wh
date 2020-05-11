@@ -1,0 +1,51 @@
+- name: Generate WP DB password
+  set_fact:
+    vhost_db_pass: >
+      "{{ lookup('password',
+      'credentials/' + ansible_host +'/'+ vhost +'/db_pass length=16') }}"
+
+- name: Find wp-content overrides for {{ vhost }}
+  find:
+    paths: "{{ wh_root }}/sites/{{ vhost }}/wp-content"
+    file_type: directory
+  register: wp_content_items_find
+
+- debug: msg="Adding site={{ vhost }} with DBpw={{ vhost_db_pass }} and {{ wp_content_items_find | map(attribute='path', default=None) |list }} overrides"
+
+- name: WP docker-compose
+  template:
+    src: docker-compose.wp.yml.j2
+    dest: "{{ wh_root }}/conf/docker-compose.wp-{{ vhost }}.yml"
+  register: compose_wp
+
+# Perhaps use "mysql -f" ?
+- name: Import DB
+  shell: |
+    cd {{ wh_root }}/conf
+    {
+    echo "CREATE DATABASE IF NOT EXISTS \`{{ vhost }}\`;"
+    echo "GRANT ALL PRIVILEGES ON \`{{ vhost }}\`.* "
+    echo "TO '{{ vhost }}'@'%' IDENTIFIED BY '{{ vhost_db_pass }}';"
+    echo "FLUSH PRIVILEGES;"
+    echo "USE \`{{ vhost }}\`;"
+    find {{ wh_root }}/sites/{{ vhost }}/sql -name \*.sql\* |
+    xargs zcat -f
+    } |
+    docker-compose -p wh -f docker-compose.db.yml exec -T db \
+    mysql -p"{{ wh_MYSQL_ROOT_PASSWORD }}"
+  when: compose_wp is changed
+  register: import_db
+
+- debug: var=import_db
+
+- name: docker-compose up WordPress
+  shell: >
+    cd {{ wh_root }}/conf &&
+    docker-compose
+    -f docker-compose.db.yml
+    -f docker-compose.wp-{{ vhost }}.yml
+    -p wh
+    up -d --no-color
+  register: output
+
+- debug: var=output

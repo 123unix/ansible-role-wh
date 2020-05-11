@@ -1,0 +1,6 @@
+*.retry
+tests/test.sh
+#*#
+.#*
+*.*~
+*.bak
