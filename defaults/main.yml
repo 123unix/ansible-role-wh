@@ -13,12 +13,20 @@ wh_home_wp: wp-content
 wh_home_wwwroot: html
 wh_home_sitedata: files
 
-wh_nginx_image: nginxinc/nginx-unprivileged:alpine
-wh_php_image: php:7.2-fpm-alpine
+###wh_nginx_image: nginxinc/nginx-unprivileged:alpine
+###wh_php_image: php:7.2-fpm-alpine
+#
+# PHP7 is incompatible with WP 4.*
 wh_php4wp_image: php:7.2-apache
-#wh_wp_image: wordpress:5.4-php7.2
-wh_wp_image: wordpress:4.6-php5.6
-# wordpress wordpress:5.4-php7.4-fpm-alpine
-wh_db_image: mariadb:10.3
+#wh_php4wp_image: php:5.6-apache
+#wh_php4wp_image: wordpress:php7.2-apache
+# used in build in docker-compose
+wp_custom_image_name: php-wp
+#wp_custom_image_name: wordpress-wp
+#
+####wh_wp_image: wordpress:5.4-php7.2
+###wh_wp_image: wordpress:4.6-php5.6
+#### wordpress wordpress:5.4-php7.4-fpm-alpine
+wh_db_image: mariadb:10.2
 # other images to consider: nginx:alpine   mysql:5.7
 

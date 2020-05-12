@@ -1,6 +1,6 @@
 - name: Generate WP DB password
   set_fact:
-    vhost_db_pass: >
+    vhost_db_pass: >-
       "{{ lookup('password',
       'credentials/' + ansible_host +'/'+ vhost +'/db_pass length=16') }}"
 
@@ -14,16 +14,33 @@
 
 - name: WP docker-compose
   template:
-    src: docker-compose.wp.yml.j2
+    #src: docker-compose.wp.yml.j2
+    src: docker-compose.php-wp.yml.j2
     dest: "{{ wh_root }}/conf/docker-compose.wp-{{ vhost }}.yml"
   register: compose_wp
+
+- name: Save SQL script for inspection
+  shell: |
+    cd {{ wh_root }}/conf
+    {
+    echo "CREATE DATABASE IF NOT EXISTS \`{{ vhost }}\` CHARSET=utf8;"
+    echo "GRANT ALL PRIVILEGES ON \`{{ vhost }}\`.* "
+    echo "TO '{{ vhost }}'@'%' IDENTIFIED BY '{{ vhost_db_pass }}';"
+    echo "FLUSH PRIVILEGES;"
+    echo "USE \`{{ vhost }}\`;"
+    find {{ wh_root }}/sites/{{ vhost }}/sql -name \*.sql\* |
+    xargs zcat -f | head
+    }
+  #when: compose_wp is changed
+  register: PRIVILEGES_SQL
+- debug: var=PRIVILEGES_SQL
 
 # Perhaps use "mysql -f" ?
 - name: Import DB
   shell: |
     cd {{ wh_root }}/conf
     {
-    echo "CREATE DATABASE IF NOT EXISTS \`{{ vhost }}\`;"
+    echo "CREATE DATABASE IF NOT EXISTS \`{{ vhost }}\` CHARSET=utf8;"
     echo "GRANT ALL PRIVILEGES ON \`{{ vhost }}\`.* "
     echo "TO '{{ vhost }}'@'%' IDENTIFIED BY '{{ vhost_db_pass }}';"
     echo "FLUSH PRIVILEGES;"

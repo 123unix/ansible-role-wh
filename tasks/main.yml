@@ -2,20 +2,14 @@
 
 #- import_tasks: install.yml
 
-- name: Securely pre-create wh_root dirs
-  file:
-    path: "{{ wh_root }}/{{ item }}"
-    state: directory
-    mode: 0700
-  with_items:
-  - conf
-  - data
+- import_tasks: conf.yml
 
-- name: Upload files
+- name: Upload sites files
   synchronize:
     src: "{{ wh_src }}/"
     dest: "{{ wh_root }}/sites/"
-    rsync_opts: "-uAHX"
+    #rsync_opts: "-uAHX"
+    rsync_opts: "-rltAHX"  # Removes new edits on receiver!
 
 - import_tasks: db-docker.yml
 

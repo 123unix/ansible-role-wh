@@ -1,4 +1,11 @@
 #!/bin/bash
+#  5/11/20 initially copied from https://github.com/docker-library/wordpress/raw/8215003254de4bf0a8ddd717c3c393e778b872ce/php7.2/apache/Dockerfile
+# This is intended to be used for WordPress hosting
+# w/o actually installing new copy of WP, unlike it is done in the official WP docker image
+#
+# Adopted for use in .ansible/roles/wh
+
+
 set -euo pipefail
 
 # usage: file_env VAR [DEFAULT]
@@ -45,48 +52,21 @@ if [[ "$1" == apache2* ]] || [ "$1" == php-fpm ]; then
 		group="$(id -g)"
 	fi
 
+    # Try to find wp-config.php
+    if [ ! -e wp-config.php -a -e .htaccess ]; then  # Try to find it in a subdir
+	    wp_index_php=`grep -i 'RewriteRule\s*.*\s*[^\s]*/index.php\s*.*L' .htaccess  | sed -e 's/\s\s*/ /g' | cut -d' ' -f3`
+	    wp_dir=${wp_index_php%/index.php}
+	    [ -d $wp_dir ] && cd $wp_dir
+    fi
+    # Only conrinue if there is a WordPress installation on the site
+    if [ -e wp-config.php ]; then
+	
 	if [ ! -e index.php ] && [ ! -e wp-includes/version.php ]; then
 		# if the directory exists and WordPress doesn't appear to be installed AND the permissions of it are root:root, let's chown it (likely a Docker-created directory)
 		if [ "$(id -u)" = '0' ] && [ "$(stat -c '%u:%g' .)" = '0:0' ]; then
 			chown "$user:$group" .
 		fi
 
-		echo >&2 "WordPress not found in $PWD - copying now..."
-		if [ -n "$(ls -A)" ]; then
-			echo >&2 "WARNING: $PWD is not empty! (copying anyhow)"
-		fi
-		sourceTarArgs=(
-			--create
-			--file -
-			--directory /usr/src/wordpress
-			--owner "$user" --group "$group"
-		)
-		targetTarArgs=(
-			--extract
-			--file -
-		)
-		if [ "$user" != '0' ]; then
-			# avoid "tar: .: Cannot utime: Operation not permitted" and "tar: .: Cannot change mode to rwxr-xr-x: Operation not permitted"
-			targetTarArgs+=( --no-overwrite-dir )
-		fi
-		tar "${sourceTarArgs[@]}" . | tar "${targetTarArgs[@]}"
-		echo >&2 "Complete! WordPress has been successfully copied to $PWD"
-		if [ ! -e .htaccess ]; then
-			# NOTE: The "Indexes" option is disabled in the php:apache base image
-			cat > .htaccess <<-'EOF'
-				# BEGIN WordPress
-				<IfModule mod_rewrite.c>
-				RewriteEngine On
-				RewriteBase /
-				RewriteRule ^index\.php$ - [L]
-				RewriteCond %{REQUEST_FILENAME} !-f
-				RewriteCond %{REQUEST_FILENAME} !-d
-				RewriteRule . /index.php [L]
-				</IfModule>
-				# END WordPress
-			EOF
-			chown "$user:$group" .htaccess
-		fi
 	fi
 
 	# allow any of these "Authentication Unique Keys and Salts." to be specified via
@@ -148,27 +128,7 @@ if [[ "$1" == apache2* ]] || [ "$1" == php-fpm ]; then
 		# https://github.com/WordPress/WordPress/commit/1acedc542fba2482bab88ec70d4bea4b997a92e4
 		sed -ri -e 's/\r$//' wp-config*
 
-		if [ ! -e wp-config.php ]; then
-			awk '
-				/^\/\*.*stop editing.*\*\/$/ && c == 0 {
-					c = 1
-					system("cat")
-					if (ENVIRON["WORDPRESS_CONFIG_EXTRA"]) {
-						print "// WORDPRESS_CONFIG_EXTRA"
-						print ENVIRON["WORDPRESS_CONFIG_EXTRA"] "\n"
-					}
-				}
-				{ print }
-			' wp-config-sample.php > wp-config.php <<'EOPHP'
-// If we're behind a proxy server and using HTTPS, we need to alert WordPress of that fact
-// see also http://codex.wordpress.org/Administration_Over_SSL#Using_a_Reverse_Proxy
-if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
-	$_SERVER['HTTPS'] = 'on';
-}
-
-EOPHP
-			chown "$user:$group" wp-config.php
-		elif [ -e wp-config.php ] && [ -n "$WORDPRESS_CONFIG_EXTRA" ] && [[ "$(< wp-config.php)" != *"$WORDPRESS_CONFIG_EXTRA"* ]]; then
+		if [ -e wp-config.php ] && [ -n "$WORDPRESS_CONFIG_EXTRA" ] && [[ "$(< wp-config.php)" != *"$WORDPRESS_CONFIG_EXTRA"* ]]; then
 			# (if the config file already contains the requested PHP code, don't print a warning)
 			echo >&2
 			echo >&2 'WARNING: environment variable "WORDPRESS_CONFIG_EXTRA" is set, but "wp-config.php" already exists'
@@ -232,54 +192,8 @@ EOPHP
 			set_config 'WP_DEBUG' 1 boolean
 		fi
 
-		if ! TERM=dumb php -- <<'EOPHP'
-<?php
-// database might not exist, so let's try creating it (just to be safe)
-
-$stderr = fopen('php://stderr', 'w');
-
-// https://codex.wordpress.org/Editing_wp-config.php#MySQL_Alternate_Port
-//   "hostname:port"
-// https://codex.wordpress.org/Editing_wp-config.php#MySQL_Sockets_or_Pipes
-//   "hostname:unix-socket-path"
-list($host, $socket) = explode(':', getenv('WORDPRESS_DB_HOST'), 2);
-$port = 0;
-if (is_numeric($socket)) {
-	$port = (int) $socket;
-	$socket = null;
-}
-$user = getenv('WORDPRESS_DB_USER');
-$pass = getenv('WORDPRESS_DB_PASSWORD');
-$dbName = getenv('WORDPRESS_DB_NAME');
-
-$maxTries = 10;
-do {
-	$mysql = new mysqli($host, $user, $pass, '', $port, $socket);
-	if ($mysql->connect_error) {
-		fwrite($stderr, "\n" . 'MySQL Connection Error: (' . $mysql->connect_errno . ') ' . $mysql->connect_error . "\n");
-		--$maxTries;
-		if ($maxTries <= 0) {
-			exit(1);
-		}
-		sleep(3);
-	}
-} while ($mysql->connect_error);
-
-if (!$mysql->query('CREATE DATABASE IF NOT EXISTS `' . $mysql->real_escape_string($dbName) . '`')) {
-	fwrite($stderr, "\n" . 'MySQL "CREATE DATABASE" Error: ' . $mysql->error . "\n");
-	$mysql->close();
-	exit(1);
-}
-
-$mysql->close();
-EOPHP
-		then
-			echo >&2
-			echo >&2 "WARNING: unable to establish a database connection to '$WORDPRESS_DB_HOST'"
-			echo >&2 '  continuing anyways (which might have unexpected results)'
-			echo >&2
-		fi
 	fi
+    fi
 
 	# now that we're definitely done writing configuration, let's clear out the relevant envrionment variables (so that stray "phpinfo()" calls don't leak secrets from our code)
 	for e in "${envs[@]}"; do

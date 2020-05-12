@@ -1,13 +1,13 @@
 galaxy_info:
   author: Alexander Shcheblikin
-  description: Configure fail2ban with more practical settings. Specialized for IP PBX (Asterisk, FreeSWITCH)
+  description: Auto-HTTPS-enabled webhost suitable for WordPress hosting, built with docker
   company: 123Unix.com
 
   license: GPL-3.0-only
 
-  min_ansible_version: 2.8
+  min_ansible_version: 2.9
 
-  role_name: fail2ban
+  role_name: wh
 
   platforms:
   - name: Alpine
@@ -31,23 +31,18 @@ galaxy_info:
     - bionic
 
   galaxy_tags:
-  - fail2ban
-  - security
-  - iptables
-  - bbb
-  - bigbluebutton
-  - asterisk
-  - freeswitch
-  - sip
-  - pbx
-  - ssh
   - server
+  - webserver
+  - php
+  - https
+  - letsencrypt
+  - wordpress
+  - security
   - networking
   - system
   - hardening
 
-#dependencies: []
 dependencies:
-- role: docker  # adds a fix for Ansible 2.9
-#- role: nickjj.docker
-#- traefik
+- role: docker  # adds fixes for Ansible 2.9
+- role: nickjj.docker
+- traefik

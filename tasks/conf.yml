@@ -1,0 +1,23 @@
+---
+
+- name: Securely pre-create wh_root dirs
+  file:
+    path: "{{ wh_root }}/{{ item }}"
+    state: directory
+    mode: 0700
+  with_items:
+  - conf
+  - data
+  - conf/{{ wp_custom_image_name }}  # This doesn't need 700 perms, but no harm
+
+- name: Create Dockerfiles
+  template:
+    src: "{{ item }}"
+    dest: "{{ wh_root }}/conf/{{ item }}"
+    mode: 0755  # Need +x perm for docker-entrypoint.sh
+  with_items:
+  - "{{ wp_custom_image_name }}/Dockerfile"
+  - "{{ wp_custom_image_name }}/docker-entrypoint.sh"
+  #- mariadb
+
+...

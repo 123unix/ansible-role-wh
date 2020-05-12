@@ -1,0 +1,38 @@
+version: '3.1'
+
+services:
+
+  wp-{{ vhost }}:
+    build:
+      context: {{ wp_custom_image_name }}
+    image: {{ wp_custom_image_name }}
+    container_name: wh_wp-{{ vhost }}
+    restart: unless-stopped
+    depends_on:
+      - db
+    networks:
+      - {{ traefik_network }}
+      - db
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_NAME: {{ vhost }}
+      WORDPRESS_DB_USER: {{ vhost }}
+      WORDPRESS_DB_PASSWORD: {{ vhost_db_pass }}
+    volumes:
+      - {{ wh_root }}/sites/{{ vhost }}/html:/var/www/html
+      #- ./config/php.conf.uploads.ini:/usr/local/etc/php/conf.d/uploads.ini
+      #- ./php-conf.d/:/usr/local/etc/php/conf.d
+#{ % for d in wp_content_items_find | map(attribute='path', default='') |list % }
+#      - { { d } }:/var/www/html/wp-content/{ { d | basename } }
+#{ % endfor % }
+    labels:
+      traefik.frontend.rule: Host:{{ vhost }},www.{{ vhost }}
+      traefik.backend: wp--{{ vhost }}
+      traefik.docker.network: {{ traefik_network }}
+      traefik.enable: "true"
+
+networks:
+  {{ traefik_network }}:
+    external: true
+  db:
+    external: true
