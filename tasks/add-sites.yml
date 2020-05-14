@@ -3,6 +3,8 @@
     paths: "{{ wh_root }}/sites"
     file_type: directory
   register: sites
+  tags: never  # task moved to main.yml
+  when: False
 
 - debug: var=sites.files
 - debug: msg="{{ sites.files | map(attribute='path') |list }}"

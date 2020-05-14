@@ -1,0 +1,32 @@
+---
+
+- name: Upload sites files
+  synchronize:
+    src: "{{ wh_src }}/"
+    dest: "{{ wh_root }}/sites/"
+    delete: "{{ wh_init }}"
+    rsync_opts:
+    #- "-uAHX"
+    - "-rltAHX"  # Removes new edits on receiver!
+    - "--exclude=wp-config.php"  # It is auto-edited by docker-entrypoint !
+  tags:
+  - huge
+
+- name: Upload wp-config.php files
+  synchronize:
+    src: "{{ item }}/"
+    dest: "{{ wh_root }}/sites/{{ item | basename }}/"
+    times: no
+    rsync_opts:
+    - "-u"
+    - "--include=*/"
+    #- "--include=**/wp-config.php"
+    - "--include=wp-config.php"
+    - "--include=*/wp-config.php"
+    - "--exclude=*"
+  with_items:
+  - "{{ sites.files | map(attribute='path') |list }}"
+  register: wp_config_updated
+  notify: update wp service
+
+...

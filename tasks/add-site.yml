@@ -19,41 +19,48 @@
     dest: "{{ wh_root }}/conf/docker-compose.wp-{{ vhost }}.yml"
   register: compose_wp
 
-- name: Save SQL script for inspection
-  shell: |
-    cd {{ wh_root }}/conf
-    {
-    echo "CREATE DATABASE IF NOT EXISTS \`{{ vhost }}\` CHARSET=utf8;"
-    echo "GRANT ALL PRIVILEGES ON \`{{ vhost }}\`.* "
-    echo "TO '{{ vhost }}'@'%' IDENTIFIED BY '{{ vhost_db_pass }}';"
-    echo "FLUSH PRIVILEGES;"
-    echo "USE \`{{ vhost }}\`;"
-    find {{ wh_root }}/sites/{{ vhost }}/sql -name \*.sql\* |
-    xargs zcat -f | head
-    }
-  #when: compose_wp is changed
-  register: PRIVILEGES_SQL
-- debug: var=PRIVILEGES_SQL
-
 # Perhaps use "mysql -f" ?
 - name: Import DB
   shell: |
+    mysql='docker-compose -p wh -f docker-compose.db.yml exec -T db mysql -p{{ wh_MYSQL_ROOT_PASSWORD }}'
+    sql={{ wh_root }}/sites/{{ vhost }}/sql
     cd {{ wh_root }}/conf
+    echo "CREATE DATABASE \`{{ vhost }}\` CHARSET=utf8;" |
+    $mysql
+    if [ ! -e $sql/db-imported.sql.gz -o -n "{{ 'init' if wh_init }}" ]; then
     {
-    echo "CREATE DATABASE IF NOT EXISTS \`{{ vhost }}\` CHARSET=utf8;"
+    echo "USE \`{{ vhost }}\`;"
+    zcat -f $sql/db-init.sql.gz
+    } |
+    $mysql &&
+    mv $sql/db-init.sql.gz $sql/db-imported.sql.gz &&
+    touch $sql/db-imported.sql.gz
+    fi
+    {
     echo "GRANT ALL PRIVILEGES ON \`{{ vhost }}\`.* "
     echo "TO '{{ vhost }}'@'%' IDENTIFIED BY '{{ vhost_db_pass }}';"
     echo "FLUSH PRIVILEGES;"
-    echo "USE \`{{ vhost }}\`;"
-    find {{ wh_root }}/sites/{{ vhost }}/sql -name \*.sql\* |
-    xargs zcat -f
     } |
-    docker-compose -p wh -f docker-compose.db.yml exec -T db \
-    mysql -p"{{ wh_MYSQL_ROOT_PASSWORD }}"
-  when: compose_wp is changed
+    $mysql
+  when: compose_wp is changed or wh_init
   register: import_db
+  retries: 2  # First import may fail while DB is still initialyzing
+  delay: 15
 
 - debug: var=import_db
+
+- name: Disable db-init dump which was just imported
+  command: >
+    mv
+    {{ wh_root }}/sites/{{ vhost }}/sql/db-init.sql.gz
+    {{ wh_root }}/sites/{{ vhost }}/sql/db-imported.sql.gz
+    && touch
+    {{ wh_root }}/sites/{{ vhost }}/sql/db-imported.sql.gz
+  args:
+    creates: "{{ wh_root }}/sites/{{ vhost }}/sql/db-imported.sql.gz"
+    #removes: "{{ wh_root }}/sites/{{ vhost }}/sql/db-init.sql.gz"
+  when: compose_wp is changed
+  tags: never  # Buggy and not needed after prev. task has been redone
 
 - name: docker-compose up WordPress
   shell: >

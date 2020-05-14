@@ -1,3 +1,21 @@
 - name: docker up
   docker_compose:
     project_src: "{{ lemp_datadir }}/conf"
+
+- name: update wp service
+  shell: >
+    docker rm -f wh_wp-{{ item | basename }} &&
+    cd {{ wh_root }}/conf &&
+    docker-compose
+    -f docker-compose.db.yml
+    -f docker-compose.wp-{{ item | basename }}.yml
+    -p wh
+    up -d --no-color
+  with_items: >
+    {{
+    wp_config_updated.results
+    | selectattr('changed')
+    | map(attribute='item')
+    | list
+    }}
+

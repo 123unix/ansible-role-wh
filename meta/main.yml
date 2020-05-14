@@ -44,5 +44,5 @@ galaxy_info:
 
 dependencies:
 - role: docker  # adds fixes for Ansible 2.9
-- role: nickjj.docker
-- traefik
+#- role: nickjj.docker
+#- traefik

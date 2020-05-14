@@ -3,9 +3,12 @@
 wh_admin_host: '{{ inventory_hostname }}'
 wh_dbadmin_path: /dbadm/
 
-wh_src: /backup/sites
+wh_src: /staging/sites
 
 wh_root: /wh
+
+# Init everything: re-import DB & rsync --delete files
+wh_init: False
 
 # homedir items
 # WordPress-specific overrides, like plugins & themes

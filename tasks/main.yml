@@ -4,12 +4,15 @@
 
 - import_tasks: conf.yml
 
-- name: Upload sites files
-  synchronize:
-    src: "{{ wh_src }}/"
-    dest: "{{ wh_root }}/sites/"
-    #rsync_opts: "-uAHX"
-    rsync_opts: "-rltAHX"  # Removes new edits on receiver!
+- name: List sites to be added
+  find:
+    paths: "{{ wh_src }}"
+    file_type: directory
+  delegate_to: 127.0.0.1
+  register: sites
+- debug: var=sites.files
+
+- import_tasks: upload-files.yml
 
 - import_tasks: db-docker.yml
 
